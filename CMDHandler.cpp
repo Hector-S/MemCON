@@ -136,6 +136,8 @@ TRACE_FAIL: //Failed to read a request.
     return false;
 }
 
+#define BIN_16(B3,B2,B1,B0) ((B3 << 12) + (B2 << 8) + (B1 << 4) + B0) //To create 16-bit binary literals easier.
+
 /*
     Exports a visual trace file. Not loadable.
     Returns true on success.
@@ -144,33 +146,33 @@ bool CMDHandler::ExportTrace(std::string &FileName)
 {
     std::ofstream File;
     CMDData *current = Head;
-    int FixedWidth = 5;
+    uint16_t BitHolder = 0;
     std::string temp; //For holding data temporarily.
     File.open(FileName);
     if(File.is_open())
     {
-        File << "Cycle CMD [  Address  ]" << std::endl;
+        File << "Cycle | CMD | Bank Group | Bank | Column" << std::endl;
         while(current)
         {
-            temp = std::to_string(current->time);
-            while((int) temp.length() <= FixedWidth)
-            {//Add spaces until we reach the desired width.
-                temp += ' ';
-            }
-            File << temp;
+            File << std::dec << std::setfill(' ') << std::setw(6) << std::left << std::to_string(current->time);
             switch(current->operation)
             {
                 case 0:
-                    File << "RD ";
+                    File << "  RD    ";
                     break;
                 case 1:
-                    File << "WR ";
+                    File << "  WR    ";
                     break;
                 case 2:
-                    File << "FET";
+                    File << "  FET   ";
                     break;
             }
-            File << " [" << "0x" << std::hex << std::setfill ('0') << std::setw(9) << current->address << ']' << std::endl;
+            BitHolder = ((current->address >> 6) & 0b11); //Bank Group.
+            File << "0x" << std::hex << std::setw(9) << BitHolder << "  ";
+            BitHolder = ((current->address >> 8) & 0b11); //Bank
+            File << "0x" << std::setw(3) << BitHolder << "  ";
+            BitHolder = ((current->address >> 3) & 0b111) | (((current->address >> 10) & 0b1111111) << 3);
+            File << "0x" << std::setw(5) << BitHolder << std::endl;
             current = current->next;
         }
         File.close();
