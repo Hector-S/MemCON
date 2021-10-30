@@ -171,7 +171,7 @@ bool CMDHandler::ExportTrace(std::string &FileName)
             File << "0x" << std::hex << std::setw(9) << BitHolder << "  ";
             BitHolder = ((current->address >> 8) & 0b11); //Bank
             File << "0x" << std::setw(3) << BitHolder << "  ";
-            BitHolder = ((current->address >> 3) & 0b111) | (((current->address >> 10) & 0b1111111) << 3);
+            BitHolder = ((current->address >> 3) & 0b111) | (((current->address >> 10) & 0b11111111) << 3);
             File << "0x" << std::setw(5) << BitHolder << std::endl;
             current = current->next;
         }
