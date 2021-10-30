@@ -28,7 +28,7 @@ enum MenuID {MAIN = 0, LOAD, SIM}; //IDs for the different menus.
 
 void DisplayTitle() //Displays the title.
 {
-    cout << "---| MemCon V0.5 (";
+    cout << "---| MemCon V0.6 (";
     if(MainData::TypeCheck)
     {
         cout << "TypeCheckEnabled ";
