@@ -136,8 +136,6 @@ TRACE_FAIL: //Failed to read a request.
     return false;
 }
 
-#define BIN_16(B3,B2,B1,B0) ((B3 << 12) + (B2 << 8) + (B1 << 4) + B0) //To create 16-bit binary literals easier.
-
 /*
     Exports a visual trace file. Not loadable.
     Returns true on success.
