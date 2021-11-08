@@ -11,6 +11,7 @@
 #include <iostream> //For IO.
 #include <iomanip> //For IO stuff.
 
+using namespace std;
 enum CMDID {RD = 0, WR = 1, FET = 2}; //Read, Write, Fetch
 
 struct CMDData

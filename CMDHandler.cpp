@@ -40,14 +40,14 @@ void CMDHandler::Clear(CMDData *current)
 /*
     Loads a trace file. Returns true on success.
 */
-bool CMDHandler::LoadTrace(std::string &FileName)
+bool CMDHandler::LoadTrace(string &FileName)
 {
     //Load file.
-    std::ifstream File;
+    ifstream File;
     int Request = 0; //What request "line" we were loading.
     int Time = 0; //Time of last loaded CMD.
     bool Reason = false; //Set to true for specific read fail reason.
-    std::string temp; //To hold stuff temporarily.
+    string temp; //To hold stuff temporarily.
     CMDData *current = nullptr;
 
     Clear(Head); //Clear list.
@@ -62,22 +62,22 @@ bool CMDHandler::LoadTrace(std::string &FileName)
         if(!(File >> Head->operation)){goto TRACE_FAIL;}
         if((Head->operation > 2) || (Head->operation < 0)) //Invalid operation read.
         {
-            std::cout << "Invalid operation '" << Head->operation << "' on Request " << Request << std::endl;
+            cout << "Invalid operation '" << Head->operation << "' on Request " << Request << endl;
             Reason = true; goto TRACE_FAIL;
         }
         if(!(File >> temp)){goto TRACE_FAIL;}
         try
         {
-            Head->address = std::stoull(temp, nullptr, 16); //Convert hex string to int.
+            Head->address = stoull(temp, nullptr, 16); //Convert hex string to int.
         }
-        catch(std::invalid_argument &) //Failed to convert string to int.
+        catch(invalid_argument &) //Failed to convert string to int.
         {
-            std::cout << "Invalid address string '" << temp << "' on Request " << Request << std::endl;
+            cout << "Invalid address string '" << temp << "' on Request " << Request << endl;
             Reason = true; goto TRACE_FAIL;
         }
-        catch(std::out_of_range &) //Converted int is too big.
+        catch(out_of_range &) //Converted int is too big.
         {
-            std::cout << "Invalid address conversion '" << Head->address << "' on Request " << Request << std::endl;
+            cout << "Invalid address conversion '" << Head->address << "' on Request " << Request << endl;
             Reason = true; goto TRACE_FAIL;
         }
         Reason = false;
@@ -90,7 +90,7 @@ bool CMDHandler::LoadTrace(std::string &FileName)
             if(!(File >> current->next->time)){goto TRACE_FAIL;}
             if(Time > current->next->time) //If this request is from the past.
             {
-                std::cout << "Invalid timing. Last CMD time: " << Time << " | This CMD time: " << current->next->time << ", on Request " << Request << std::endl;
+                cout << "Invalid timing. Last CMD time: " << Time << " | This CMD time: " << current->next->time << ", on Request " << Request << endl;
                 Reason = true; goto TRACE_FAIL;
             }
             else
@@ -100,22 +100,22 @@ bool CMDHandler::LoadTrace(std::string &FileName)
             if(!(File >> current->next->operation)){goto TRACE_FAIL;}
             if((current->next->operation > 2) || (current->next->operation < 0)) //Invalid operation read.
             {
-                std::cout << "Invalid operation '" << current->next->operation << "' on Request " << Request << std::endl;
+                cout << "Invalid operation '" << current->next->operation << "' on Request " << Request << endl;
                 Reason = true; goto TRACE_FAIL;
             }
             if(!(File >> temp)){goto TRACE_FAIL;}
             try
             {
-                current->next->address = std::stoull(temp, nullptr, 16); //Convert hex string to int.
+                current->next->address = stoull(temp, nullptr, 16); //Convert hex string to int.
             }
-            catch(std::invalid_argument &) //Failed to convert string to int.
+            catch(invalid_argument &) //Failed to convert string to int.
             {
-                std::cout << "Invalid address string '" << temp << "' on Request " << Request << std::endl;
+                cout << "Invalid address string '" << temp << "' on Request " << Request << endl;
                 Reason = true; goto TRACE_FAIL;
             }
-            catch(std::out_of_range &) //Converted int is too big.
+            catch(out_of_range &) //Converted int is too big.
             {
-                std::cout << "Invalid address conversion '" << current->next->address << "' on Request " << Request << std::endl;
+                cout << "Invalid address conversion '" << current->next->address << "' on Request " << Request << endl;
                 Reason = true; goto TRACE_FAIL;
             }
             current = current->next; //Move to next current.
@@ -128,9 +128,9 @@ bool CMDHandler::LoadTrace(std::string &FileName)
 TRACE_FAIL: //Failed to read a request.
     if(!Reason)
     {
-        std::cout << "Invalid data on Request " << Request << std::endl;
+        cout << "Invalid data on Request " << Request << endl;
     }
-    std::cout << "Failed to load file, reason is above." << std::endl;
+    cout << "Failed to load file, reason is above." << endl;
     Clear(Head); //Clear list.
     Head = nullptr;
     return false;
@@ -140,19 +140,19 @@ TRACE_FAIL: //Failed to read a request.
     Exports a visual trace file. Not loadable.
     Returns true on success.
 */
-bool CMDHandler::ExportTrace(std::string &FileName)
+bool CMDHandler::ExportTrace(string &FileName)
 {
-    std::ofstream File;
+    ofstream File;
     CMDData *current = Head;
     uint16_t BitHolder = 0;
-    std::string temp; //For holding data temporarily.
+    string temp; //For holding data temporarily.
     File.open(FileName);
     if(File.is_open())
     {
-        File << "Cycle | CMD | Bank Group | Bank | Column" << std::endl;
+        File << "Cycle | CMD | Bank Group | Bank | Column" << endl;
         while(current)
         {
-            File << std::dec << std::setfill(' ') << std::setw(6) << std::left << std::to_string(current->time);
+            File << dec << setfill(' ') << setw(6) << left << to_string(current->time);
             switch(current->operation)
             {
                 case 0:
@@ -166,20 +166,20 @@ bool CMDHandler::ExportTrace(std::string &FileName)
                     break;
             }
             BitHolder = ((current->address >> 6) & 0b11); //Bank Group.
-            File << "0x" << std::hex << std::setw(9) << BitHolder << "  ";
+            File << "0x" << hex << setw(9) << BitHolder << "  ";
             BitHolder = ((current->address >> 8) & 0b11); //Bank
-            File << "0x" << std::setw(3) << BitHolder << "  ";
+            File << "0x" << setw(3) << BitHolder << "  ";
             BitHolder = ((current->address >> 3) & 0b111) | (((current->address >> 10) & 0b11111111) << 3);
-            File << "0x" << std::setw(5) << BitHolder << std::endl;
+            File << "0x" << setw(5) << BitHolder << endl;
             current = current->next;
         }
         File.close();
-        std::cout << std::dec;
-        std::cout << std::setfill(' ');
+        cout << dec;
+        cout << setfill(' ');
         return true;
     }
-    std::cout << std::dec;
-    std::cout << std::setfill(' ');
+    cout << dec;
+    cout << setfill(' ');
     return false;
 }
 
@@ -189,37 +189,37 @@ bool CMDHandler::ExportTrace(std::string &FileName)
 void CMDHandler::Display()
 {
     int FixedWidth = 5;
-    int RequestWidth = std::to_string(Size).length();
+    int RequestWidth = to_string(Size).length();
     int Request = 0;
-    std::string temp; //For holding data temporarily.
+    string temp; //For holding data temporarily.
     CMDData *current = Head;
     while(current)
     {
-        std::cout << "Request " << std::dec << std::setfill(' ') << std::setw(RequestWidth) << Request << ':';
-        temp = std::to_string(current->time);
+        cout << "Request " << dec << setfill(' ') << setw(RequestWidth) << Request << ':';
+        temp = to_string(current->time);
         while((int) temp.length() <= FixedWidth)
         {//Add spaces until we reach the desired width.
             temp += ' ';
         }
-        std::cout << temp;
+        cout << temp;
         switch(current->operation)
         {
             case 0:
-                std::cout << "RD ";
+                cout << "RD ";
                 break;
             case 1:
-                std::cout << "WR ";
+                cout << "WR ";
                 break;
             case 2:
-                std::cout << "FET";
+                cout << "FET";
                 break;
         }
-        std::cout << " [" << "0x" << std::hex << std::setfill('0') << std::setw(9) << current->address << ']' << std::endl;
+        cout << " [" << "0x" << hex << setfill('0') << setw(9) << current->address << ']' << endl;
         current = current->next;
         ++Request;
     }
-    std::cout << std::dec;
-    std::cout << std::setfill(' ');
+    cout << dec;
+    cout << setfill(' ');
     return;
 }
 
