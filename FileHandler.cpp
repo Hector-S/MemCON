@@ -173,56 +173,6 @@ int StringList::GetSize()
 {
     return Size;
 }
-/*
-Adding the data into the queue at the rear
-*/
-void StringList::enqueue(queue * request_list, string &Name)
-{
-	struct DataNode * temp = new DataNode;
-
-	if(request_list -> head == NULL){
-		request_list -> head = temp;
-	}
-	else{
-		request_list -> rear -> next = temp;
-	}
-	request_list -> rear = temp;
-	request_list -> rear -> next = request_list -> head;
-}
-/*
-Delete the data at the front of the queue
-*/
-void StringList::dequeue(queue * request_list)
-{
-	//if the queue is empty
-	if(request_list -> head == NULL){
-		cout<<"Nothing is in queue \n"<<endl;
-		return;
-	}
-	//last node need to be delete
-	if(request_list -> head == request_list -> rear){
-		struct DataNode * temp = request_list -> head;
-		delete request_list -> head;
-		request_list -> head = NULL;
-		request_list -> rear = NULL;
-	}
-	//more than 1 node is in the queue
-	else{
-		struct DataNode * temp = request_list -> head;
-		request_list -> head = request_list -> head -> next;
-		request_list -> rear = request_list -> head;
-		delete temp;
-	}
-	return;
-}
-/*
-display the delete request 
-*/
-void display_delete_node(DataNode &request){
-	cout << request -> data<<endl;
-	return;
-}
-
 
 
 
