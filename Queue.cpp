@@ -8,7 +8,6 @@ queue::queue(){
 }
 //deconstructor of the Queue class that will delete the queue when the program is finish
 queue::~queue(){
-	delete_queue();
 }
 /*
 Adding the data into the queue at the rear
@@ -58,12 +57,6 @@ display the delete request
 void queuedisplay_delete_node(DataNode &request){
 	cout << request.data<<endl;
 	return;
-}
-/*
-delete the entire request list after the program finish running
-*/
-void queue::delete_queue(){
-		
 }
 
 

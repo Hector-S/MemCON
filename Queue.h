@@ -13,7 +13,7 @@ struct DataNode
 	string data;
 	DataNode * next;
 };
-struct queue
+class queue
 {
 	public:
 		queue();
