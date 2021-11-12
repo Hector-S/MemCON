@@ -6,6 +6,8 @@
 #include "FileHandler.h"
 #include "General.h"
 
+using namespace std;
+
 /*
     CONSTRUCTOR
 */
@@ -31,7 +33,7 @@ void StringList::Display()
     StringNode *current = Head;
     while(current)
     {
-        std::cout << StrNum << ". " << current->data << std::endl;
+        cout << StrNum << ". " << current->data << endl;
         ++StrNum;
         current = current->next;
     }
@@ -74,7 +76,7 @@ void StringList::LoadFromDirectory(bool TypeCheck)
     Clear(); //Clear the list.
     DIR *dir;
     struct dirent *ent;
-    std::string FileName;
+    string FileName;
     if((dir = opendir (".")) != NULL)
     {
         while((ent = readdir (dir)) != NULL)
@@ -99,7 +101,7 @@ void StringList::LoadFromDirectory(bool TypeCheck)
     }
     else
     {
-        std::cout << "Error: Failed to open directory!" << std::endl;
+        cout << "Error: Failed to open directory!" << endl;
     }
     return;
 }
@@ -107,7 +109,7 @@ void StringList::LoadFromDirectory(bool TypeCheck)
 /*
     Recursive function for Add().
 */
-void StringList::AddRecursive(StringNode *current, std::string &Name)
+void StringList::AddRecursive(StringNode *current, string &Name)
 {
     if(current->next) //If next node exists
     {
@@ -125,7 +127,7 @@ void StringList::AddRecursive(StringNode *current, std::string &Name)
 /*
     Adds a string to the list. Returns true on success.
 */
-bool StringList::Add(std::string &Name)
+bool StringList::Add(string &Name)
 {
     if(!Name.empty()) //If we were given a non-empty string.
     {
@@ -148,7 +150,7 @@ bool StringList::Add(std::string &Name)
     Obtains nth (number) string. Returns true on success.
     String reference will hold new string.
 */
-bool StringList::GetString(int number, std::string &Buffer)
+bool StringList::GetString(int number, string &Buffer)
 {
     StringNode *current = Head;
     int StrNum = 1;
@@ -173,3 +175,9 @@ int StringList::GetSize()
 {
     return Size;
 }
+
+
+
+
+
+
