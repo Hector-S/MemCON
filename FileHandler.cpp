@@ -6,6 +6,8 @@
 #include "FileHandler.h"
 #include "General.h"
 
+using namespace std;
+
 /*
     CONSTRUCTOR
 */

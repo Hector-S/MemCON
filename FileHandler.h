@@ -12,11 +12,10 @@
 #include <iostream> //For IO.
 #include <dirent.h> //For accessing the directory.
 
-using namespace std;
 //Node for StringList
 struct StringNode
 {
-    string data;
+    std::string data;
     StringNode *next = nullptr;
 };
 
@@ -29,13 +28,13 @@ class StringList
         void Display(); //Displays the list of strings.
         void Clear(); //Clears the list.
         void LoadFromDirectory(bool TypeCheck); //Fills list with names of files in current directory.
-		bool Add(string &Name); //Adds a string to the list. Given string will be unaltered.
-        bool GetString(int number, string &Buffer); //String reference will hold new string.
+		bool Add(std::string &Name); //Adds a string to the list. Given string will be unaltered.
+        bool GetString(int number, std::string &Buffer); //String reference will hold new string.
         int GetSize(); //Returns size of list.
     private:
         StringNode *Head = nullptr; //List starts empty.
         int Size = 0; //Total amount of strings in the list.
-        void AddRecursive(StringNode *current, string &Name);
+        void AddRecursive(StringNode *current, std::string &Name);
         void ClearRecursive(StringNode *current);
 };
 

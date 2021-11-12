@@ -28,7 +28,7 @@ enum MenuID {MAIN = 0, LOAD, SIM}; //IDs for the different menus.
 
 void DisplayTitle() //Displays the title.
 {
-    cout << "---| MemCon V0.7 (";
+    cout << "---| MemCon V0.92 (";
     if(MainData::TypeCheck)
     {
         cout << "TypeCheckEnabled ";
@@ -116,7 +116,8 @@ void MenuFunction(int &Menu, int &Choice)
                 Menu = MAIN; //Return to main menu.
                 Choice = 0; //Avoid choice of MENU_QUIT quitting program.
                 system(CLEAR_STRING);
-                if(!MainData::Simulation.LoadTrace(MainData::LoadedFile)) //Load trace input from file.
+                MainData::Simulation.LoadFileName = MainData::LoadedFile; //Set simulation load file name.
+                if(!MainData::Simulation.LoadTrace()) //Load trace input from file.
                 {//If we failed to load the file.
                     MainData::LoadedFile.clear();
                 }
@@ -136,8 +137,10 @@ void MenuFunction(int &Menu, int &Choice)
             system(CLEAR_STRING);
             if((MainData::InputString[0] == 'y') || (MainData::InputString[0] == 'Y')) //Can't fail getting a string.
             { //Any input that starts with y/Y is considered a yes.
-                if(MainData::Simulation.ExportTrace(SaveFileName)) //If file is saved successfully.
+                MainData::Simulation.SaveFileName = SaveFileName; //Set save file name for simulation.
+                if(MainData::Simulation.ExportTrace()) //If file is saved successfully.
                 {
+                    MainData::Simulation.Simulate();
                     cout << "File was saved as '" << SaveFileName << "'." << endl;
                     if(MainData::DebugMode) //If in debug mode.
                     {
@@ -179,6 +182,7 @@ int main(int argc, char *argv[])
         else if(MainData::InputString.compare("-d") == 0) //Enable debug, prints out simulation in console.
         {
             MainData::DebugMode = true;
+            MainData::Simulation.DebugMode = true;
             cout << "Debug mode enabled." << endl;
         }
         else if(MainData::InputString.compare("-f") == 0) //Load file
@@ -187,7 +191,8 @@ int main(int argc, char *argv[])
             {
                 ++i;
                 MainData::LoadedFile = argv[i];
-                if(!MainData::Simulation.LoadTrace(MainData::LoadedFile)) //Load trace input from file.
+                MainData::Simulation.LoadFileName = MainData::LoadedFile;
+                if(!MainData::Simulation.LoadTrace()) //Load trace input from file.
                 {//If we failed to load the file.
                     MainData::LoadedFile.clear();
                 }
