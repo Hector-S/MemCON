@@ -8,9 +8,9 @@
 
 //The following is for easy screen clearing on Windows or Linux.
 #ifdef _WIN32
-    #define CLEAR_STRING "cls"
+    #define CLEAR_SCREEN system("cls")
 #elif defined __unix__
-    #define CLEAR_STRING "clear"
+    #define CLEAR_SCREEN system("clear")
 #endif
 
 #endif // GENERAL_H_INCLUDED

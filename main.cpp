@@ -18,212 +18,178 @@ namespace MainData //Holds important data for main.cpp
 {
     bool TypeCheck = false; //Only ".txt" files are loadable.
     bool DebugMode = false; //Shows debug info in console.
-    string LoadedFile; //To hold file name of loaded file.
-    string InputString; //To hold input strings.
     StringList FileNames; //Holds list of files in current directory.
     CMDHandler Simulation; //Simulation (holds timing * commands)
 }
 
-enum MenuID {MAIN = 0, LOAD, SIM}; //IDs for the different menus.
-
 void DisplayTitle() //Displays the title.
 {
-    cout << "---| MemCon V0.92 (";
+    cout << "---| MemCon V0.1a ( ";
     if(MainData::TypeCheck)
     {
-        cout << "TypeCheckEnabled ";
+        cout << "FileTypeCheck ";
     }
     if(MainData::DebugMode)
     {
-        cout << "DebugMode ";
+        cout << "Debug ";
     }
-    if(!MainData::LoadedFile.empty()) //If we've loaded a file.
+    if(!MainData::Simulation.LoadFileName.empty()) //If we've loaded a file.
     {
-        cout << ") [Filed Loaded: " << MainData::LoadedFile << "] |---" << endl;
+        cout << ") [Filed Selected: " << MainData::Simulation.LoadFileName << "] |---" << endl;
     }
     else
     {
-        cout << ") [No Filed Loaded] |---" << endl;
-    }
-}
-
-/*
-    Displays selected menu.
-*/
-void DisplayMenu(int Menu)
-{
-    switch(Menu)
-    {
-        case MAIN:
-            DisplayTitle();
-            cout << "1. Load File" << endl;
-            cout << "2. Simulate" << endl;
-            cout << "3. Quit" << endl;
-            cout << "Choice: ";
-            break;
-        case LOAD:
-            MainData::FileNames.LoadFromDirectory(MainData::TypeCheck); //Load names in current directory.
-            DisplayTitle();
-            cout << "Choose file to open." << endl;
-            MainData::FileNames.Display();
-            cout << "Choice: ";
-            break;
-        case SIM:
-            DisplayTitle();
-            cout << "Please enter a save file name." << endl;
-            cout << "Choice: ";
-            break;
-        default:
-
-            break;
+        cout << ") [No Filed Selected] |---" << endl;
     }
     return;
 }
 
-/*
-    Does the function of the selected menu.
-*/
-void MenuFunction(int &Menu, int &Choice)
+void SelectFileMenu() //User selects a file.
 {
-    switch(Menu)
+    int Choice = 0;
+    MainData::FileNames.LoadFromDirectory(MainData::TypeCheck); //Load names in current directory.
+    CLEAR_SCREEN;
+    while(true)
     {
-        case MAIN: //Main menu function.
-            switch(Choice)
-            {
-                case 1:
-                    Menu = LOAD;
-                    system(CLEAR_STRING);
-                    break;
-                case 2:
-                    Menu = SIM;
-                    system(CLEAR_STRING);
-                    break;
-                default:
-                    if(Choice != MENU_QUIT) //Quitting is a valid option.
-                    {
-                        cin.clear(); //Clear the invalid input.
-                        cin.ignore(IGNORE_LEN, '\n');
-                        system(CLEAR_STRING); //Clear the console with system call.
-                        cout << "Please enter a valid option." << endl;
-                    }
-                    break;
-            }
-            break;
-        case LOAD: //Load menu function.
-            if(Choice <= MainData::FileNames.GetSize())
-            {
-                MainData::FileNames.GetString(Choice, MainData::LoadedFile); //Get selected file name.
-                Menu = MAIN; //Return to main menu.
-                Choice = 0; //Avoid choice of MENU_QUIT quitting program.
-                system(CLEAR_STRING);
-                MainData::Simulation.LoadFileName = MainData::LoadedFile; //Set simulation load file name.
-                if(!MainData::Simulation.LoadTrace()) //Load trace input from file.
-                {//If we failed to load the file.
-                    MainData::LoadedFile.clear();
-                }
-            }
-            else
-            {
-                system(CLEAR_STRING);
-                cout << "Please choose a valid file." << endl;
-            }
-            break;
-        case SIM: //Simulation menu function.
-            { //Curly brackets to restrict existence of SaveFileName.
-            string SaveFileName = MainData::InputString;
-            cout << "Is the save file name '" << SaveFileName << "' correct? (y/n)" << endl;
-            cin >> MainData::InputString;
-            cin.ignore(IGNORE_LEN, '\n'); //Clear extra input.
-            system(CLEAR_STRING);
-            if((MainData::InputString[0] == 'y') || (MainData::InputString[0] == 'Y')) //Can't fail getting a string.
-            { //Any input that starts with y/Y is considered a yes.
-                MainData::Simulation.SaveFileName = SaveFileName; //Set save file name for simulation.
-                if(MainData::Simulation.ExportTrace()) //If file is saved successfully.
-                {
-                    MainData::Simulation.Simulate();
-                    cout << "File was saved as '" << SaveFileName << "'." << endl;
-                    if(MainData::DebugMode) //If in debug mode.
-                    {
-                        MainData::Simulation.Display();
-                    }
-                }
-                else
-                {
-                    cout << "Failed to save file." << endl;
-                }
-            }
-            else
-            {
-                cout << "File was not saved." << endl;
-            }
-            Menu = MAIN; //Return to main menu.
-            }
-            break;
-        default:
+        DisplayTitle();
+        cout << "Select a file." << endl;
+        MainData::FileNames.Display();
+        cout << "Choice: ";
+        cin >> Choice;
+        if(MainData::FileNames.GetSize() == 0)
+        {
+            cout << "No loadable files in current directory." << endl;
+            return;
+        }
+        if((Choice <= MainData::FileNames.GetSize()) && (Choice >= 1))
+        {// If the choice was a possible number in the list.
+            MainData::FileNames.GetString(Choice, MainData::Simulation.LoadFileName); //Get selected file name.
+            CLEAR_SCREEN;
+            break; //Exit the loop.
+        }
+        else
+        {
+            CLEAR_SCREEN;
+            cout << "Please choose a valid file." << endl;
+        }
+    }
+    return;
+}
 
-            break;
+void SimulateMenu() //Simulate the selected file.
+{
+    string Choice;
+    string temp;
+    CLEAR_SCREEN;
+    if(!MainData::Simulation.LoadFileName.empty()) //If there's a load file name.
+    {
+        while(true)
+        {
+            DisplayTitle();
+            cout << "Enter save file name: ";
+            cin >> Choice; //Can't fail getting a string.
+            cin.ignore(IGNORE_LEN, '\n'); //Clear extra input.
+            cout << "Is the save file name '" << Choice << "' correct? (y/n)" << endl;
+            cin >> temp;
+            if((temp[0] == 'y') || (temp[0] == 'Y')) //Can't fail getting a string.
+            {//If yes.
+                MainData::Simulation.SaveFileName = Choice;
+                CLEAR_SCREEN;
+                MainData::Simulation.Simulate(); //Simulate the selected file.
+                cout << "Output trace file saved as '" << Choice << "'." << endl;
+                break; //Exit the loop.
+            }
+            else
+            {
+                CLEAR_SCREEN;
+                cout << "Please select a file name." << endl;
+            }
+        }
+    }
+    else
+    {
+        cout << "No selected file to simulate." << endl;
     }
 }
 
 int main(int argc, char *argv[])
 {
-    int Menu = MAIN; //Start in main menu.
     int Choice = 0;
-    system(CLEAR_STRING);
+    string ArgHolder; //To hold arguments.
+    CLEAR_SCREEN; //Clear the screen.
     //Load command arguments
     for(int i = 1; i < argc; ++i)
     {
-        MainData::InputString = argv[i];
-        if(MainData::InputString.compare("-t") == 0) //If the user wants type checking for loading files.
+        ArgHolder = argv[i];
+        if(ArgHolder.compare("-t") == 0) //If the user wants type checking for loading files.
         {
             MainData::TypeCheck = true;
             cout << "Type checking for loadable files is true." << endl;
         }
-        else if(MainData::InputString.compare("-d") == 0) //Enable debug, prints out simulation in console.
+        else if(ArgHolder.compare("-d") == 0) //Enable debug, prints out simulation in console.
         {
             MainData::DebugMode = true;
             MainData::Simulation.DebugMode = true;
             cout << "Debug mode enabled." << endl;
         }
-        else if(MainData::InputString.compare("-f") == 0) //Load file
+        else if(ArgHolder.compare("-f") == 0) //Load file
         {
             if((i+1) < argc) //If the next argument exists, take it as a file name.
             {
                 ++i;
-                MainData::LoadedFile = argv[i];
-                MainData::Simulation.LoadFileName = MainData::LoadedFile;
-                if(!MainData::Simulation.LoadTrace()) //Load trace input from file.
-                {//If we failed to load the file.
-                    MainData::LoadedFile.clear();
-                }
+                MainData::Simulation.LoadFileName = argv[i];
             }
         }
     }
-    while(!((Menu == MAIN) && (Choice == MENU_QUIT)))
+    while(Choice != 5) //While we haven't selected to quit.
     {
-        DisplayMenu(Menu);
-        cin >> Choice;
-        if(std::cin) //If the user typed in an integer
-        { // ^Returns false if anything but an integer is typed.
-            MenuFunction(Menu, Choice);
-        }
-        else //An integer was not selected.
+        DisplayTitle(); //Display title.
+        cout << "1. Select file" << endl;
+        cout << "2. Simulate file" << endl;
+        cout << "3. Change debug mode" << endl;
+        cout << "4. Change file type checking" << endl;
+        cout << "5. Quit" << endl;
+        cout << "Choice: ";
+        cin >> Choice; //Get input for choice.
+        if(std::cin) //If we got an integer.
         {
-            if(Menu == SIM) //SIM expects a string.
+            cin.clear();
+            cin.ignore(IGNORE_LEN, '\n'); //Clear extra input.
+            switch(Choice)
             {
-                cin.clear();
-                cin >> MainData::InputString; //Can't fail getting a string.
-                cin.ignore(IGNORE_LEN, '\n'); //Clear extra input.
-                MenuFunction(Menu, Choice);
+                case 1: //Select file.
+                    SelectFileMenu();
+                    CLEAR_SCREEN;
+                    break;
+                case 2: //Simulate file.
+                    SimulateMenu();
+                    break;
+                case 3: //Change debug mode.
+                    MainData::DebugMode = !MainData::DebugMode;
+                    MainData::Simulation.DebugMode = !MainData::Simulation.DebugMode;
+                    CLEAR_SCREEN;
+                    break;
+                case 4: //Change file type checking.
+                    MainData::TypeCheck = !MainData::TypeCheck;
+                    CLEAR_SCREEN;
+                    break;
+                case 5: //Quit the program.
+                    CLEAR_SCREEN;
+                    break;
+                default: //Invalid input given.
+                    CLEAR_SCREEN;
+                    cout << "Please select a valid option." << endl;
+                    break;
             }
-            else
-            {
-                cin.clear(); //Reset error flags.
-                cin.ignore(IGNORE_LEN, '\n'); //Clear the invalid input.
-                system(CLEAR_STRING);
-                cout << "Please enter an integer." << endl;
-            }
+        }
+        else
+        {
+            cin.clear(); //Reset error flags.
+            cin.ignore(IGNORE_LEN, '\n'); //Clear the invalid input.
+            CLEAR_SCREEN;
+            cout << "Please enter an integer." << endl;
         }
     }
+    cout << "Program quitted." << endl;
     return 0;
 }

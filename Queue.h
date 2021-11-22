@@ -17,38 +17,7 @@
 #define QUEUE_SIZE 16 //Queue has a max size of 16.
 
 //IDs for memory requests.
-enum RequestID {RD = 0, WR = 1, FET = 2, UDF = 4}; //Read, write, fetch, & undefined.
-
-/*
-using namespace std;
-^The std namespace uses up a lot of identifiers that we can
-no longer include ourselves when we declare it's use like this.
-It can be seen as bad to put this in a header file because now
-any code that wants to include "Queue.h" now must also deal with
-not being able to use that vast amount of identifiers.
-TLDR: using namespace std should only be used in .cpp files if necessary.
-*/
-
- /*
-Nodes for the CLL
-*/
-struct DataNode
-{
-	std::string data;
-	DataNode * next;
-};
-
-class Queue
-{
-	public:
-		Queue();
-		~Queue();
-     	void enqueue(Queue * request_queue, std::string &request);//Adding the data into the string.
-		void dequeue(Queue * request_queue);//Remove 1 data from the string.
-	private:
-		DataNode * head;
-		DataNode * rear;
-};
+enum RequestID {RD = 0, WR = 1, FET = 2, UDF = 3}; //Read, write, fetch, & undefined.
 
 /*
     Holds a memory request.
