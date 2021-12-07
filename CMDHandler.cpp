@@ -61,6 +61,7 @@ bool CMDHandler::Simulate()
         while(File.peek() != EOF) //Load rest of commands until end of file.
         {//File must end with EOF or we will return false and an error message.
             if(!(File >> CurReq.time)){cout << "Non-integer time." << endl; Reason = true; goto TRACE_FAIL;} //Get time.
+            if(CurReq.time < CPU_Time){cout << "Given time was already passed." << endl; Reason = true; goto TRACE_FAIL;} //Got time that was in the past.
             if(!(File >> CurReq.operation)){cout << "Non-integer operation." << endl; Reason = true; goto TRACE_FAIL;} //Get operation.
             if((CurReq.operation > 2) || (CurReq.operation < 0)) //Invalid operation read.
             {
