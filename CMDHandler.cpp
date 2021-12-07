@@ -269,7 +269,7 @@ int CMDHandler::WriteCommand(ofstream &File, uint8_t Command, uint64_t Address, 
     {
         File << "  WR    " ; //Output bank group + bank + column;
         File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  0x" << setw(5) << Column << endl;
-        PassedCycles += T_CAS; //Advance time by column delay.
+        PassedCycles += T_CAS + T_BURST; //Advance time by column delay.
     }
     else if(Command == FET) //Duplicate of RD for now.
     {

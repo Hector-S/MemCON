@@ -23,7 +23,7 @@ namespace MainData //Holds important data for main.cpp
 
 void DisplayTitle() //Displays the title.
 {
-    cout << "---| MemCon V0.7a ( ";
+    cout << "---| MemCon V0.8a ( ";
     if(MainData::Simulation.DebugMode)
     {
         cout << "Debug ";
