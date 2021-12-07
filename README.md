@@ -7,12 +7,14 @@ You can load a file by starting MemCon and selecting a file to load from the cur
 
 Then you can simulate the file (it will ask for an output file name).  
 
+You can also change the program's settings which can also be toggled via command line arguments.
+
 Finally you can quit when done.
 
 **---| Command Line Arguments |---**
 
 
-"-f 'File_Name'" = Will load the file whose name you give.
+"-f 'File_Name'" = Will select the given file name for simulating.
 
 "-d" = Enable debug mode.
 
