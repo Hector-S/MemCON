@@ -89,6 +89,7 @@ bool MemConQueue::Enqueue(int RequestID, uint64_t NewAddress)
 {
     if((Front != Back) || ((Front == Back) && (Data[Front].Command == UDF)))
     {//If the queue is not full.
+        //cout << "Enqueue| Front: " << (int) Front << " Back: " << (int) Back << " Data: " << RequestID << endl;
         if(Data[Back].Command == UDF) //If current position is empty.
         {
             Data[Back].Command = RequestID;
@@ -115,9 +116,10 @@ bool MemConQueue::Dequeue(uint8_t &Command, uint64_t &Address)
 {
     if(!Empty()) //If the queue is not empty.
     {
+        //cout << "Dequeue| Front: " << (int) Front << " Back: " << (int) Back << " Data: " << (int) Data[Front].Command << endl;
         Command = Data[Front].Command;
-        Data[Front].Command = UDF; //Indicate it's empty.
         Address = Data[Front].Address;
+        Data[Front].Command = UDF; //Indicate it's empty.
         INCR_VAR(Front);
         return true;
     }

@@ -41,6 +41,8 @@ bool CMDHandler::Simulate()
     MEM_Time = 0;
     int BusyTime = 0; //How much time until DIMM is no longer busy.
     int TimeUntil = 0; //Time until current request.
+    //Reset memory controller data.
+    LastBankGroup = -1, LastBank = -1, LastColumn = -1, LastRow = -1; TimeLastACT = -10000;
 
     cout << "---| Simulation Messages |---" << endl;
     if(DebugMode)
@@ -52,7 +54,10 @@ bool CMDHandler::Simulate()
     OutputFile.open(SaveFileName); //Open the selected file for output.
     if(File.is_open() && OutputFile.is_open())
     {
-        OutputFile << "Cycle | CMD | Bank Group | Bank | Column" << endl;
+        if(LabelOutput) //Label output if true.
+        {
+            OutputFile << "Cycle | CMD | Bank Group | Bank | Col/Row" << endl;
+        }
         while(File.peek() != EOF) //Load rest of commands until end of file.
         {//File must end with EOF or we will return false and an error message.
             if(!(File >> CurReq.time)){cout << "Non-integer time." << endl; Reason = true; goto TRACE_FAIL;} //Get time.
@@ -78,68 +83,31 @@ bool CMDHandler::Simulate()
                 Reason = true; goto TRACE_FAIL;
             }
             //Current request was loaded.
-            TimeUntil = CurReq.time - CPU_Time; //Time until next request.
-            if((TimeUntil - BusyTime) == 0) //No time until next request. Process immediately.
-            {
-                CPU_Time = CurReq.time; //Jump immediately to this request's time.
-                MEM_Time = round(CPU_Time / 2.0); //On odd # CPU cycles, we skip a memory cycle.
-                BusyTime = ProcessRequest(CurReq.operation, CurReq.address, true) * 2; //1 memory cycle = 2 CPU cycles.
-            }
-            else if((TimeUntil - BusyTime) > 0) //We have time to process requests.
-            {
-                do
-                { //While we have time until the next request, process requests in queue.
+            TimeUntil = CurReq.time - CPU_Time; //Time until this request.
+            while(TimeUntil >= 0)
+            {//Handle requests in queue until empty or out of time.
+                BusyTime = ProcessRequest(0, 0, false) * 2; //Get CPU cycles.
+                if(BusyTime != 0)
+                {
                     TimeUntil -= BusyTime;
                     CPU_Time += BusyTime;
-                    MEM_Time += (BusyTime / 2);
-                    BusyTime = ProcessRequest(CurReq.operation, CurReq.address, false) * 2;
-                    if(BusyTime == 0) //Break loop if nothing in queue.
-                    {
-                        break;
-                    }
-                }while((TimeUntil - BusyTime) > 0);
-                //Process current request or enqueue if no time left.
-                if((TimeUntil - BusyTime) >= 0) //Process request.
-                {
-                    MEM_Time = round(CurReq.time / 2.0); //Jump immediately to this request's time.
-                    CPU_Time = MEM_Time * 2; //Jump immediately to this request's time.
-                    BusyTime = ProcessRequest(CurReq.operation, CurReq.address, true) * 2; //1 memory cycle = 2 CPU cycles.
+                    MEM_Time += BusyTime / 2;
                 }
-                else //Enqueue request. No time to process.
+                else
                 {
-                    if(!Queue.Enqueue(CurReq.operation, CurReq.address))
-                    {//Adds request to queue or if queue is full does..
-                        cout << "Queue is full. Request [";
-                        switch(CurReq.operation)
-                        {
-                            case RD:
-                                cout << "RD  ";
-                                break;
-                            case WR:
-                                cout << "WR  ";
-                                break;
-                            case FET:
-                                cout << "FET ";
-                                break;
-                            case UDF:
-                                cout << "UDF ";
-                                break;
-                        }
-                        cout << hex << setfill('0') << setw(9) << CurReq.address << " @ " << dec << CurReq.time << "] was skipped." << endl;
-                        cout << setfill(' ');
-                        if(DebugMode) //Display current queue in debug mode.
-                        {
-                            Queue.Display();
-                        }
-                    }
+                    break; //Exit loop if queue is empty.
                 }
             }
-            else if((TimeUntil - BusyTime) < 0) //If we're still busy enqueue request.
+            if(TimeUntil >= 0) //If there's still time until this request.
+            { //Process the request.
+                CPU_Time = CurReq.time; //Jump to this request's time.
+                MEM_Time = round(CurReq.time / 2.0);
+                BusyTime = ProcessRequest(CurReq.operation, CurReq.address, true);
+                CPU_Time += BusyTime * 2;
+                MEM_Time += BusyTime;
+            }
+            else //Enqueue request if no time left.
             {
-                //Advance by time needed to catch up.
-                CPU_Time += BusyTime;
-                MEM_Time = round(CPU_Time / 2.0); //On odd # CPU cycles, we skip a memory cycle.
-                BusyTime = 0;
                 if(!Queue.Enqueue(CurReq.operation, CurReq.address))
                 {//Adds request to queue or if queue is full does..
                     cout << "Queue is full. Request [";
@@ -200,8 +168,9 @@ TRACE_FAIL: //Failed to read a request.
 /*
     Writes given command to simulate output file.
 */
-void WriteCommand(ofstream &File, uint8_t Command, uint64_t Address, int MemTime, bool DebugMode)
+int WriteCommandSimple(ofstream &File, uint8_t Command, uint64_t Address, int MemTime, bool DebugMode)
 {
+    int PassedCycles = 5; //How many memory cycles have been used.
     if(!DebugMode) //Output timing as memory cycles if not in debug mode.
     {
         MemTime *= 2;
@@ -227,16 +196,100 @@ void WriteCommand(ofstream &File, uint8_t Command, uint64_t Address, int MemTime
     File << "0x" << hex << setw(9) << BitHolder << "  ";
     BitHolder = ((Address >> 8) & 0b11); //Bank
     File << "0x" << setw(3) << BitHolder << "  ";
-    BitHolder = ((Address >> 3) & 0b111) | (((Address >> 10) & 0b11111111) << 3);
+    BitHolder = ((Address >> 3) & 0b111) | (((Address >> 10) & 0b11111111) << 3); //Column
     File << "0x" << setw(5) << BitHolder << endl;
     cout << dec << setfill(' ');
-    return;
+    return PassedCycles;
+}
+
+/*
+    Write DRAM commands to simulate output file.
+*/
+int CMDHandler::WriteCommand(ofstream &File, uint8_t Command, uint64_t Address, int MemTime, bool DebugMode)
+{
+    int PassedCycles = 0; //To track cycles passed.
+    int DelayRAS = 0; //Need to account for RAS and delay time until precharge.
+    uint16_t BankGroup = 0, Bank = 0, Column = 0, Row = 0;
+    BankGroup = ((Address >> 6) & 0b11); //Bank Group.
+    Bank = ((Address >> 8) & 0b11); //Bank
+    Column = ((Address >> 3) & 0b111) | (((Address >> 10) & 0b11111111) << 3); //Column
+    Row = Address >> 18; //Row
+    //Get delay for T_RAS if needed.
+    DelayRAS = T_RAS - (MEM_Time - TimeLastACT);
+    if(DelayRAS < 0)
+    {
+        DelayRAS = 0;
+    }
+    if(!DebugMode) //Output timing as memory cycles if not in debug mode.
+    {
+        MemTime *= 2;
+    }
+    //Currently there is no bank parallelism.
+    if(Row == LastRow) //Page hit or empty.
+    {
+        //If statement for page hit/empty is incorrect. Need to change.
+        if(Bank == LastBank) //Page hit
+        {
+            if(DebugMode){cout << "Page Hit" << endl;}
+        }
+        else //Page empty
+        {
+            if(DebugMode){cout << "Page Empty" << endl;}
+            File << left << setw(6) << to_string(MemTime + PassedCycles*(1 + !DebugMode)); //Output current time.
+            TimeLastACT = MemTime + PassedCycles;
+            File << "  ACT   " ; //Output bank group + bank + row;
+            File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  0x" << setw(5) << Row << endl;
+            PassedCycles += T_RCD; //Advance time by RAS to CAS delay.
+        }
+    }
+    else //Page Miss
+    {
+        if(DebugMode){cout << "Page Miss" << endl;}
+        PassedCycles += DelayRAS; //Delay for T_RAS if needed.
+        File << left << setw(6) << to_string(MemTime + PassedCycles*(1 + !DebugMode)); //Output current time.
+        File << "  PRE   " ; //Output bank group + bank;
+        File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  " << endl;
+        PassedCycles += T_RP; //Advance time by row precharge timing.
+
+        File << left << setw(6) << to_string(MemTime + PassedCycles*(1 + !DebugMode)); //Output current time.
+        TimeLastACT = MemTime + PassedCycles;
+        File << "  ACT   " ; //Output bank group + bank + row;
+        File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  0x" << setw(5) << Row << endl;
+        PassedCycles += T_RCD; //Advance time by RAS to CAS delay.
+    }
+    File << left << setw(6) << to_string(MemTime + PassedCycles*(1 + !DebugMode)); //Output current time.
+    //Send command.
+    if(Command == RD)
+    {
+        File << "  RD    " ; //Output bank group + bank + column;
+        File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  0x" << setw(5) << Column << endl;
+        PassedCycles += T_CAS + T_BURST; //Advance time by column delay & data burst.
+    }
+    else if(Command == WR)
+    {
+        File << "  WR    " ; //Output bank group + bank + column;
+        File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  0x" << setw(5) << Column << endl;
+        PassedCycles += T_CAS; //Advance time by column delay.
+    }
+    else if(Command == FET) //Duplicate of RD for now.
+    {
+        File << "  RD    " ; //Output bank group + bank + column;
+        File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  0x" << setw(5) << Column << endl;
+        PassedCycles += T_CAS + T_BURST; //Advance time by column delay & data burst.
+    }
+    else
+    {
+        cout << "Error: Invalid command given." << endl;
+    }
+    LastBankGroup = BankGroup; LastBank = Bank; LastColumn = Column; LastRow = Row;
+    cout << dec << setfill(' '); //Reset output format.
+    return PassedCycles;
 }
 
 
 /*
     Processes request given.
-    Returns clock cycles until no longer busy.
+    Returns memory clock cycles needed for request.
 */
 int CMDHandler::ProcessRequest(uint8_t Command, uint64_t Address, bool NewRequest)
 {
@@ -247,15 +300,27 @@ int CMDHandler::ProcessRequest(uint8_t Command, uint64_t Address, bool NewReques
     {
         if(NewRequest)
         {
-            WriteCommand(File, Command, Address, MEM_Time, DebugMode);
-            ClockCycles = 5; //Set fake time to do request until we code it.
+            if(!SimpleOutput)
+            {
+                ClockCycles = WriteCommand(File, Command, Address, MEM_Time, DebugMode);
+            }
+            else
+            {
+                ClockCycles = WriteCommandSimple(File, Command, Address, MEM_Time, DebugMode);
+            }
         }
         else
         {//Process request in queue instead.
             if(Queue.Dequeue(Command, Address))
             { //If something was dequeued, process it.
-                WriteCommand(File, Command, Address, MEM_Time, DebugMode);
-                ClockCycles = 5; //Set fake time to do request until we code it.
+                if(!SimpleOutput)
+                {
+                    ClockCycles = WriteCommand(File, Command, Address, MEM_Time, DebugMode);
+                }
+                else
+                {
+                    ClockCycles = WriteCommandSimple(File, Command, Address, MEM_Time, DebugMode);
+                }
             }
         }
         File.close();

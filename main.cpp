@@ -17,21 +17,28 @@ using namespace std; //So we don't have to reference each time. E.g. std::cout o
 namespace MainData //Holds important data for main.cpp
 {
     bool TypeCheck = false; //Only ".txt" files are loadable.
-    bool DebugMode = false; //Shows debug info in console.
     StringList FileNames; //Holds list of files in current directory.
     CMDHandler Simulation; //Simulation (holds timing * commands)
 }
 
 void DisplayTitle() //Displays the title.
 {
-    cout << "---| MemCon V0.1a ( ";
-    if(MainData::TypeCheck)
-    {
-        cout << "FileTypeCheck ";
-    }
-    if(MainData::DebugMode)
+    cout << "---| MemCon V0.7a ( ";
+    if(MainData::Simulation.DebugMode)
     {
         cout << "Debug ";
+    }
+    if(MainData::TypeCheck)
+    {
+        cout << "CheckFileType ";
+    }
+    if(MainData::Simulation.LabelOutput)
+    {
+        cout << "LabelOutput ";
+    }
+    if(MainData::Simulation.SimpleOutput)
+    {
+        cout << "SimpleOutput ";
     }
     if(!MainData::Simulation.LoadFileName.empty()) //If we've loaded a file.
     {
@@ -110,6 +117,63 @@ void SimulateMenu() //Simulate the selected file.
     {
         cout << "No selected file to simulate." << endl;
     }
+    return;
+}
+
+void SettingsMenu()
+{
+    int Choice = 0;
+    CLEAR_SCREEN;
+    while(Choice != 5)
+    {
+        DisplayTitle(); //Display title.
+        cout << "1. Toggle debug mode" << endl;
+        cout << "2. Toggle file type checking" << endl;
+        cout << "3. Toggle labeling output" << endl;
+        cout << "4. Toggle simple output" << endl;
+        cout << "5. Main menu" << endl;
+        cout << "Choice: ";
+        cin >> Choice; //Get input for choice.
+        if(std::cin) //If we got an integer.
+        {
+            cin.clear();
+            cin.ignore(IGNORE_LEN, '\n'); //Clear extra input.
+            switch(Choice)
+            {
+                case 1: //Change debug mode.
+                    MainData::Simulation.DebugMode = !MainData::Simulation.DebugMode;
+                    CLEAR_SCREEN;
+                    break;
+                case 2: //Change file type checking.
+                    MainData::TypeCheck = !MainData::TypeCheck;
+                    CLEAR_SCREEN;
+                    break;
+                case 3: //Change output labeling.
+                    MainData::Simulation.LabelOutput = !MainData::Simulation.LabelOutput;
+                    CLEAR_SCREEN;
+                    break;
+                case 4: //Change output labeling.
+                    MainData::Simulation.SimpleOutput = !MainData::Simulation.SimpleOutput;
+                    CLEAR_SCREEN;
+                    break;
+                case 5: //Quit this menu.
+                    CLEAR_SCREEN;
+                    break;
+                default: //Invalid input given.
+                    CLEAR_SCREEN;
+                    cout << "Please select a valid option." << endl;
+                    break;
+            }
+        }
+        else
+        {
+            cin.clear(); //Reset error flags.
+            cin.ignore(IGNORE_LEN, '\n'); //Clear the invalid input.
+            CLEAR_SCREEN;
+            cout << "Please enter an integer." << endl;
+        }
+    }
+    return;
 }
 
 int main(int argc, char *argv[])
@@ -128,9 +192,18 @@ int main(int argc, char *argv[])
         }
         else if(ArgHolder.compare("-d") == 0) //Enable debug, prints out simulation in console.
         {
-            MainData::DebugMode = true;
             MainData::Simulation.DebugMode = true;
             cout << "Debug mode enabled." << endl;
+        }
+        else if(ArgHolder.compare("-l") == 0) //Enable labeled output. Output file will label data columns.
+        {
+            MainData::Simulation.LabelOutput = true;
+            cout << "Labeled output enabled." << endl;
+        }
+        else if(ArgHolder.compare("-s") == 0) //Enable simple output. Output file will reflect requests.
+        {
+            MainData::Simulation.SimpleOutput = true;
+            cout << "Simple output enabled." << endl;
         }
         else if(ArgHolder.compare("-f") == 0) //Load file
         {
@@ -141,14 +214,13 @@ int main(int argc, char *argv[])
             }
         }
     }
-    while(Choice != 5) //While we haven't selected to quit.
+    while(Choice != 4) //While we haven't selected to quit.
     {
         DisplayTitle(); //Display title.
         cout << "1. Select file" << endl;
-        cout << "2. Simulate file" << endl;
-        cout << "3. Change debug mode" << endl;
-        cout << "4. Change file type checking" << endl;
-        cout << "5. Quit" << endl;
+        cout << "2. Simulate" << endl;
+        cout << "3. Settings" << endl;
+        cout << "4. Quit" << endl;
         cout << "Choice: ";
         cin >> Choice; //Get input for choice.
         if(std::cin) //If we got an integer.
@@ -164,16 +236,10 @@ int main(int argc, char *argv[])
                 case 2: //Simulate file.
                     SimulateMenu();
                     break;
-                case 3: //Change debug mode.
-                    MainData::DebugMode = !MainData::DebugMode;
-                    MainData::Simulation.DebugMode = !MainData::Simulation.DebugMode;
-                    CLEAR_SCREEN;
+                case 3: //Simulate file.
+                    SettingsMenu();
                     break;
-                case 4: //Change file type checking.
-                    MainData::TypeCheck = !MainData::TypeCheck;
-                    CLEAR_SCREEN;
-                    break;
-                case 5: //Quit the program.
+                case 4: //Quit the program.
                     CLEAR_SCREEN;
                     break;
                 default: //Invalid input given.
