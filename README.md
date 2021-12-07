@@ -15,6 +15,7 @@ Finally you can quit when done.
 "-f 'File_Name'" = Will load the file whose name you give.
 
 "-d" = Enable debug mode.
+
 Will show status of queue failing to enqueue new requests due to being full.
 
 Will show status of queue when all requests from trace file have been processed
@@ -23,10 +24,12 @@ or are in the queue.
 Will print out a page miss/hit/empty for each request processed.
 
 "-t" = Enable file type checking.
+
 Only .txt files will show as loadable files.
 
 "-l" = Label output. First line of output file will label each column.
 
 "-s" = Simple output.
+
 Output will show request commands with the final data column being the column bits in all cases.
 Each request always takes 10 CPU cycles to complete.
