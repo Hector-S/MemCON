@@ -11,13 +11,22 @@ Finally you can quit when done.
 
 **---| Command Line Arguments |---**
 
-"-d" = Enable debug mode.
-
-"-t" = Enable file type checking. Only .txt files will show as loadable files.
 
 "-f 'File_Name'" = Will load the file whose name you give.
 
-**---| Debug Mode |---**
+"-d" = Enable debug mode.
+Will show status of queue failing to enqueue new requests due to being full.
 
-Will display each request loaded from a save file that was loaded when you simulate.
-Each request will show the timing, the command, and the full address given.
+Will show status of queue when all requests from trace file have been processed
+or are in the queue.
+
+Will print out a page miss/hit/empty for each request processed.
+
+"-t" = Enable file type checking.
+Only .txt files will show as loadable files.
+
+"-l" = Label output. First line of output file will label each column.
+
+"-s" = Simple output.
+Output will show request commands with the final data column being the column bits in all cases.
+Each request always takes 10 CPU cycles to complete.
