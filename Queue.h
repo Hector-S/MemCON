@@ -13,42 +13,12 @@
 #include <iostream> //For IO.
 #include <iomanip> //For IO stuff.
 #include <dirent.h> //For accessing the directory.
+#include <queue> //For use as a test queue.
 
 #define QUEUE_SIZE 16 //Queue has a max size of 16.
 
 //IDs for memory requests.
-enum RequestID {RD = 0, WR = 1, FET = 2, UDF = 4}; //Read, write, fetch, & undefined.
-
-/*
-using namespace std;
-^The std namespace uses up a lot of identifiers that we can
-no longer include ourselves when we declare it's use like this.
-It can be seen as bad to put this in a header file because now
-any code that wants to include "Queue.h" now must also deal with
-not being able to use that vast amount of identifiers.
-TLDR: using namespace std should only be used in .cpp files if necessary.
-*/
-
- /*
-Nodes for the CLL
-*/
-struct DataNode
-{
-	std::string data;
-	DataNode * next;
-};
-
-class Queue
-{
-	public:
-		Queue();
-		~Queue();
-     	void enqueue(Queue * request_queue, std::string &request);//Adding the data into the string.
-		void dequeue(Queue * request_queue);//Remove 1 data from the string.
-	private:
-		DataNode * head;
-		DataNode * rear;
-};
+enum RequestID {RD = 0, WR = 1, FET = 2, UDF = 3}; //Read, write, fetch, & undefined.
 
 /*
     Holds a memory request.
@@ -63,7 +33,7 @@ struct MemoryRequest
 };
 
 /*
-
+    Queue used to hold memory requests.
 */
 class MemConQueue
 {
@@ -78,6 +48,79 @@ class MemConQueue
         MemoryRequest Data[QUEUE_SIZE]; //The queue's data.
         uint8_t Front = 0; //Would be 4 bits in memory controller.
         uint8_t Back = 0; //Would be 4 bits in memory controller.
+};
+
+/*
+    A test queue that utilizes the default queue in C++ std.
+    Doesn't return the same exact values as MemConQueue, leading
+    to the program giving incorrect output when in debug mode.
+    When not in debug mode, program works correctly with this queue.
+*/
+class TestQueue
+{
+    public:
+        TestQueue(){}; //CONSTRUCTOR
+        ~TestQueue(){}; //DESTRUCTOR
+        void Display()
+        {
+            int ListCount = 1; //Keeps track of how many queue items displayed.
+            if(!data.empty())
+            {
+                std::cout << "# | COM | [  Address  ]" << std::endl;
+                while(!data.empty())
+                {
+                    std::cout << std::dec << std::setfill(' ') << std::setw(2) << ListCount << "  ";
+                    MemoryRequest temp = data.front();
+                    data.pop();
+                    switch(temp.Command)
+                    {
+                        case RD:
+                            std::cout << "RD ";
+                            break;
+                        case WR:
+                            std::cout << "WR ";
+                            break;
+                        case FET:
+                            std::cout << "FET";
+                            break;
+                        case UDF:
+                            std::cout << "UDF";
+                            break;
+                    }
+                    std::cout << "   [0x" << std::hex << std::setfill('0') << std::setw(9) << temp.Address << ']' << std::endl;
+                    ++ListCount;
+                }
+                std::cout << std::dec << std::setfill(' '); //Reset cout parameters.
+            }
+            else
+            {
+                std::cout << "Queue is empty." << std::endl;
+            }
+        }
+        bool Enqueue(int RequestID, uint64_t NewAddress)
+        {
+            if(data.size() < QUEUE_SIZE)
+            {
+                MemoryRequest temp = {(uint8_t) RequestID, NewAddress};
+                data.push(temp);
+                return true;
+            }
+            return false; //Queue is full failed to enqueue.
+        }
+        bool Dequeue(uint8_t &Command, uint64_t &Address)
+        {
+            if(!data.empty())
+            {
+                MemoryRequest temp = data.front();
+                Command = temp.Command; Address = temp.Address;
+                data.pop();
+                return true;
+            }
+            return false; //Queue is empty, can't dequeue.
+        }
+        bool Empty(){return data.empty();}
+    private:
+        std::queue<MemoryRequest> data;
 };
 
 #endif // QUEUE_H_INCLUDED

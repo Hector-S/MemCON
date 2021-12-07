@@ -8,67 +8,6 @@
 
 using namespace std;
 
-//constructor of the Queue class that will set everything to NULL
-Queue::Queue(){
-	head = NULL;
-	rear = NULL;
-}
-//deconstructor of the Queue class that will delete the queue when the program is finish
-Queue::~Queue(){
-}
-/*
-Adding the data into the queue at the rear
-*/
-void Queue::enqueue(Queue * request_queue, string &Name)
-{
-	struct DataNode * temp = new DataNode;
-	temp -> data = Name;
-	if(request_queue -> head == NULL){
-		request_queue -> head = temp;
-	}
-	else{
-		request_queue -> rear -> next = temp;
-	}
-	request_queue -> rear = temp;
-	request_queue -> rear -> next = request_queue -> head;
-}
-/*
-Delete the data at the front of the queue
-*/
-void Queue::dequeue(Queue * request_queue)
-{
-	//if the queue is empty
-	if(request_queue -> head == NULL){
-		cout<<"Nothing is in queue \n"<<endl;
-		return;
-	}
-	//last node need to be delete
-	if(request_queue -> head == request_queue -> rear){
-		//struct DataNode * temp = request_queue -> head; //Commented out because not used.
-		//^ Remove if not used or utilize if needed.
-		delete request_queue -> head;
-		request_queue -> head = NULL;
-		request_queue -> rear = NULL;
-	}
-	//more than 1 node is in the queue
-	else{
-		struct DataNode * temp = request_queue -> head;
-		request_queue -> head = request_queue -> head -> next;
-		request_queue -> rear = request_queue -> head;
-		delete temp;
-	}
-	return;
-}
-/*
-display the delete request
-*/
-void queuedisplay_delete_node(DataNode &request){
-	cout << request.data<<endl;
-	return;
-}
-
-//START OF MemConQueue
-
 /*
     CONSTRUCTOR
 */
@@ -150,6 +89,7 @@ bool MemConQueue::Enqueue(int RequestID, uint64_t NewAddress)
 {
     if((Front != Back) || ((Front == Back) && (Data[Front].Command == UDF)))
     {//If the queue is not full.
+        //cout << "Enqueue| Front: " << (int) Front << " Back: " << (int) Back << " Data: " << RequestID << endl;
         if(Data[Back].Command == UDF) //If current position is empty.
         {
             Data[Back].Command = RequestID;
@@ -176,9 +116,10 @@ bool MemConQueue::Dequeue(uint8_t &Command, uint64_t &Address)
 {
     if(!Empty()) //If the queue is not empty.
     {
+        //cout << "Dequeue| Front: " << (int) Front << " Back: " << (int) Back << " Data: " << (int) Data[Front].Command << endl;
         Command = Data[Front].Command;
-        Data[Front].Command = UDF; //Indicate it's empty.
         Address = Data[Front].Address;
+        Data[Front].Command = UDF; //Indicate it's empty.
         INCR_VAR(Front);
         return true;
     }

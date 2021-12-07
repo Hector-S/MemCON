@@ -20,112 +20,57 @@ CMDHandler::CMDHandler()
 */
 CMDHandler::~CMDHandler()
 {
-    Clear(Head);
+
 }
 
 /*
-    Deletes CMDData list.
+    Simulates the memory controller.
 */
-void CMDHandler::Clear(CMDData *current)
+bool CMDHandler::Simulate()
 {
-    if(current)
-    {
-        Clear(current->next);
-        delete current;
-    }
-    if(Size != 0)
-    {
-        Size = 0;
-    }
-}
-
-/*
-    Removes oldest request from list and returns pointer to it.
-    You must free the returned data node to avoid a memory leak.
-    Returns nullptr if we reached end of requests.
-*/
-CMDData *CMDHandler::GetRequest()
-{
-    CMDData *temp = Head;
-    if(Head)
-    {
-        Head = Head->next;
-        --Size;
-        return temp; //Return old head.
-    }
-    return nullptr;
-}
-
-/*
-    Loads a trace file. Returns true on success.
-*/
-bool CMDHandler::LoadTrace()
-{
-    //Load file.
-    ifstream File;
-    int Request = 0; //What request "line" we were loading.
-    int Time = 0; //Time of last loaded CMD.
+    ifstream File; //Filed being loaded.
+    ofstream OutputFile; //Output file.
+    //File load data.
     bool Reason = false; //Set to true for specific read fail reason.
+    int Request = 0; //What request "line" we were loading.
+    //int Time = 0; //Time of last loaded CMD.
     string temp; //To hold stuff temporarily.
-    CMDData *current = nullptr;
+    CMDData CurReq; //Current request data.
+    //Simulation data.
+    CPU_Time = 0;
+    MEM_Time = 0;
+    int BusyTime = 0; //How much time until DIMM is no longer busy.
+    int TimeUntil = 0; //Time until current request.
+    //Reset memory controller data.
+    LastBankGroup = -1, LastBank = -1, LastColumn = -1, LastRow = -1; TimeLastACT = -10000;
 
-    Clear(Head); //Clear list.
-    Head = nullptr;
-
-    File.open(LoadFileName);
-    if(File.is_open())
+    cout << "---| Simulation Messages |---" << endl;
+    if(DebugMode)
     {
-        Head = new CMDData; //Created head.
-        if(!(File >> Head->time)){goto TRACE_FAIL;} //Get time.
-        Time = Head->time;
-        if(!(File >> Head->operation)){goto TRACE_FAIL;}
-        if((Head->operation > 2) || (Head->operation < 0)) //Invalid operation read.
+        cout << "Debug Mode: Output timing is in memory cycles." << endl;
+    }
+
+    File.open(LoadFileName); //Open the selected file for simulation.
+    OutputFile.open(SaveFileName); //Open the selected file for output.
+    if(File.is_open() && OutputFile.is_open())
+    {
+        if(LabelOutput) //Label output if true.
         {
-            cout << "Invalid operation '" << Head->operation << "' on Request " << Request << endl;
-            Reason = true; goto TRACE_FAIL;
+            OutputFile << "Cycle | CMD | Bank Group | Bank | Col/Row" << endl;
         }
-        if(!(File >> temp)){goto TRACE_FAIL;}
-        try
-        {
-            Head->address = stoull(temp, nullptr, 16); //Convert hex string to int.
-        }
-        catch(invalid_argument &) //Failed to convert string to int.
-        {
-            cout << "Invalid address string '" << temp << "' on Request " << Request << endl;
-            Reason = true; goto TRACE_FAIL;
-        }
-        catch(out_of_range &) //Converted int is too big.
-        {
-            cout << "Invalid address conversion '" << Head->address << "' on Request " << Request << endl;
-            Reason = true; goto TRACE_FAIL;
-        }
-        Reason = false;
-        current = Head;
-        ++Request;
-        ++Size;
-        while(File.peek() != EOF) //Load rest of commands until end of file. File must end with EOF we will return false and an error message.
-        {
-            current->next = new CMDData; //Create next CMD request.
-            if(!(File >> current->next->time)){goto TRACE_FAIL;}
-            if(Time > current->next->time) //If this request is from the past.
+        while(File.peek() != EOF) //Load rest of commands until end of file.
+        {//File must end with EOF or we will return false and an error message.
+            if(!(File >> CurReq.time)){cout << "Non-integer time." << endl; Reason = true; goto TRACE_FAIL;} //Get time.
+            if(!(File >> CurReq.operation)){cout << "Non-integer operation." << endl; Reason = true; goto TRACE_FAIL;} //Get operation.
+            if((CurReq.operation > 2) || (CurReq.operation < 0)) //Invalid operation read.
             {
-                cout << "Invalid timing. Last CMD time: " << Time << " | This CMD time: " << current->next->time << ", on Request " << Request << endl;
+                cout << "Invalid operation '" << CurReq.operation << "' on Request " << Request << endl;
                 Reason = true; goto TRACE_FAIL;
             }
-            else
-            {
-                Time = current->next->time;
-            }
-            if(!(File >> current->next->operation)){goto TRACE_FAIL;}
-            if((current->next->operation > 2) || (current->next->operation < 0)) //Invalid operation read.
-            {
-                cout << "Invalid operation '" << current->next->operation << "' on Request " << Request << endl;
-                Reason = true; goto TRACE_FAIL;
-            }
-            if(!(File >> temp)){goto TRACE_FAIL;}
+            if(!(File >> temp)){goto TRACE_FAIL;} //Get address.
             try
             {
-                current->next->address = stoull(temp, nullptr, 16); //Convert hex string to int.
+                CurReq.address = stoull(temp, nullptr, 16); //Convert hex string to int.
             }
             catch(invalid_argument &) //Failed to convert string to int.
             {
@@ -134,162 +79,39 @@ bool CMDHandler::LoadTrace()
             }
             catch(out_of_range &) //Converted int is too big.
             {
-                cout << "Invalid address conversion '" << current->next->address << "' on Request " << Request << endl;
+                cout << "Invalid address conversion '" << CurReq.address << "' on Request " << Request << endl;
                 Reason = true; goto TRACE_FAIL;
             }
-            current = current->next; //Move to next current.
-            ++Request;
-            ++Size;
-        }
-        File.close();
-        return true; //Success
-    }
-TRACE_FAIL: //Failed to read a request.
-    if(!Reason)
-    {
-        cout << "Invalid data on Request " << Request << endl;
-    }
-    cout << "Failed to load file, reason is above." << endl;
-    Clear(Head); //Clear list.
-    Head = nullptr;
-    return false;
-}
-
-/*
-    Exports a visual trace file. Not loadable.
-    Returns true on success.
-*/
-bool CMDHandler::ExportTrace()
-{
-    ofstream File;
-    CMDData *current = Head;
-    uint16_t BitHolder = 0;
-    string temp; //For holding data temporarily.
-    File.open(SaveFileName);
-    if(File.is_open())
-    {
-        File << "Cycle | CMD | Bank Group | Bank | Column" << endl;
-        while(current)
-        {
-            File << dec << setfill(' ') << setw(6) << left << to_string(current->time);
-            switch(current->operation)
-            {
-                case RD:
-                    File << "  RD    ";
-                    break;
-                case WR:
-                    File << "  WR    ";
-                    break;
-                case FET:
-                    File << "  FET   ";
-                    break;
+            //Current request was loaded.
+            TimeUntil = CurReq.time - CPU_Time; //Time until this request.
+            while(TimeUntil >= 0)
+            {//Handle requests in queue until empty or out of time.
+                BusyTime = ProcessRequest(0, 0, false) * 2; //Get CPU cycles.
+                if(BusyTime != 0)
+                {
+                    TimeUntil -= BusyTime;
+                    CPU_Time += BusyTime;
+                    MEM_Time += BusyTime / 2;
+                }
+                else
+                {
+                    break; //Exit loop if queue is empty.
+                }
             }
-            BitHolder = ((current->address >> 6) & 0b11); //Bank Group.
-            File << "0x" << hex << setw(9) << BitHolder << "  ";
-            BitHolder = ((current->address >> 8) & 0b11); //Bank
-            File << "0x" << setw(3) << BitHolder << "  ";
-            BitHolder = ((current->address >> 3) & 0b111) | (((current->address >> 10) & 0b11111111) << 3);
-            File << "0x" << setw(5) << BitHolder << endl;
-            current = current->next;
-        }
-        File.close();
-        cout << dec;
-        cout << setfill(' ');
-        return true;
-    }
-    cout << dec;
-    cout << setfill(' ');
-    return false;
-}
-
-/*
-    Displays the list
-*/
-void CMDHandler::Display()
-{
-    int FixedWidth = 5;
-    int RequestWidth = to_string(Size).length();
-    int Request = 0;
-    string temp; //For holding data temporarily.
-    CMDData *current = Head;
-    cout << "---| Requests Read |---" << endl;
-    while(current)
-    {
-        cout << "Request " << dec << setfill(' ') << setw(RequestWidth) << Request << ": ";
-        temp = to_string(current->time);
-        while((int) temp.length() <= FixedWidth)
-        {//Add spaces until we reach the desired width.
-            temp += ' ';
-        }
-        cout << temp;
-        switch(current->operation)
-        {
-            case RD:
-                cout << "RD ";
-                break;
-            case WR:
-                cout << "WR ";
-                break;
-            case FET:
-                cout << "FET";
-                break;
-        }
-        cout << " [" << "0x" << hex << setfill('0') << setw(9) << current->address << ']' << endl;
-        current = current->next;
-        ++Request;
-    }
-    cout << dec;
-    cout << setfill(' ');
-    return;
-}
-
-/*
-    Simulates the memory controller.
-*/
-void CMDHandler::Simulate()
-{
-    int TimeForNextRequest = 0; //How much time until next request can be processed in CPU cycles.
-    int TimeUntilNextRequest = 0; //How much time until next CPU memory request.
-    CMDData *TempRequestData = nullptr;
-    ofstream File;
-    File.open(SaveFileName);
-    if(File.is_open()) //Create simulation's output file.
-    {
-        File << "Cycle | CMD | Bank Group | Bank | Column" << endl;
-        File.close();
-    }
-    cout << "---| Simulation Messages |---" << endl;
-    if(DebugMode)
-    {
-        cout << "Debug Mode: Output timing is in memory cycles." << endl;
-    }
-    TempRequestData = GetRequest(); //Gets next memory request.
-    if(TempRequestData) //In case file doesn't start with clock cycle at 0.
-    {
-        CPU_Time = TempRequestData->time; //Set CPU time to time of latest CPU request.
-        MEM_Time = round(CPU_Time / 2.0); //On odd # CPU cycles, we skip a memory cycle.
-    }
-
-    while(TempRequestData) //While there are still CPU memory requests to be issued.
-    { //Process those requests.
-        int temp;
-        if(TimeUntilNextRequest >= 0)
-        {
-            temp = ProcessRequest(TempRequestData->operation, TempRequestData->address, true);
-            MEM_Time += temp;
-            CPU_Time = MEM_Time * 2;
-            //Process request
-            delete TempRequestData; //Free data node we extracted from list.
-            TempRequestData = GetRequest(); //Gets next memory request.
-        }
-        else
-        {
-            while(TimeUntilNextRequest < 0)
+            if(TimeUntil >= 0) //If there's still time until this request.
+            { //Process the request.
+                CPU_Time = CurReq.time; //Jump to this request's time.
+                MEM_Time = round(CurReq.time / 2.0);
+                BusyTime = ProcessRequest(CurReq.operation, CurReq.address, true);
+                CPU_Time += BusyTime * 2;
+                MEM_Time += BusyTime;
+            }
+            else //Enqueue request if no time left.
             {
-                if(!Queue.Enqueue(TempRequestData->operation, TempRequestData->address))
-                {//Adds request to queue, or if queue is full does...
+                if(!Queue.Enqueue(CurReq.operation, CurReq.address))
+                {//Adds request to queue or if queue is full does..
                     cout << "Queue is full. Request [";
-                    switch(TempRequestData->operation)
+                    switch(CurReq.operation)
                     {
                         case RD:
                             cout << "RD  ";
@@ -304,127 +126,51 @@ void CMDHandler::Simulate()
                             cout << "UDF ";
                             break;
                     }
-                    cout << hex << setfill('0') << setw(9) << TempRequestData->address << " @ " << dec << TempRequestData->time << "] was skipped." << endl;
+                    cout << hex << setfill('0') << setw(9) << CurReq.address << " @ " << dec << CurReq.time << "] was skipped." << endl;
                     cout << setfill(' ');
                     if(DebugMode) //Display current queue in debug mode.
                     {
                         Queue.Display();
                     }
-                } //We enqueued the request, move on to next one.
-                delete TempRequestData; //Free data node we extracted from list.
-                TempRequestData = GetRequest(); //Gets next memory request.
-                if(TempRequestData)
-                {
-                    TimeUntilNextRequest = TempRequestData->time - CPU_Time;
-                }
-                else
-                {
-                    break;
                 }
             }
+            Reason = false;
+            ++Request;
         }
-        if(TempRequestData)
+        //Only memory requests left are in the queue. So we process requests until queue is empty.
+        if(DebugMode) //Display current queue in debug mode.
         {
-            TimeUntilNextRequest = TempRequestData->time - CPU_Time;
-            if(TimeUntilNextRequest > 0) //If we have time until next request.
-            {//Process requests in queue.
-                if(!Queue.Empty()) //If queue is not empty.
-                {
-                    while(TimeUntilNextRequest > 0)
-                    { //Process items in queue until we get next CPU memory request.
-                        temp = ProcessRequest(TempRequestData->operation, TempRequestData->address, false);
-                        MEM_Time += temp;
-                        TimeForNextRequest -= temp * 2;
-                        if(temp == 0) //If queue is empty.
-                        { //Jump to next CPU memory request time.
-                            CPU_Time = TempRequestData->time;
-                            MEM_Time = round(CPU_Time / 2.0);
-                            TimeUntilNextRequest = 0;
-                            break;
-                        }
-                    }
-                    if(TimeUntilNextRequest < 0) //Enqueue CPU_Request.
-                    { //CPU memory request came while processing a request.
-                        CPU_Time = MEM_Time * 2;
-                        CPU_Time -= TimeUntilNextRequest; //Advance CPU_Time until request is done.
-                        MEM_Time = round(CPU_Time / 2.0);
-                        TimeUntilNextRequest = 0;
-                        if(!Queue.Enqueue(TempRequestData->operation, TempRequestData->address))
-                        {//Adds request to queue, or if queue is full does...
-                            cout << "Queue is full. Request [";
-                            switch(TempRequestData->operation)
-                            {
-                                case RD:
-                                    cout << "RD  ";
-                                    break;
-                                case WR:
-                                    cout << "WR  ";
-                                    break;
-                                case FET:
-                                    cout << "FET ";
-                                    break;
-                                case UDF:
-                                    cout << "UDF ";
-                                    break;
-                            }
-                            cout << hex << setfill('0') << setw(9) << TempRequestData->address << " @ " << dec << TempRequestData->time << "] was skipped." << endl;
-                            cout << setfill(' ');
-                            if(DebugMode) //Display current queue in debug mode.
-                            {
-                                Queue.Display();
-                            }
-                        } //We enqueued the request, move on to next one.
-                        delete TempRequestData; //Free data node we extracted from list.
-                        TempRequestData = GetRequest(); //Gets next memory request.
-                    }
-                }
-                else //If queue is empty.
-                {//Jump to latest request time.
-                    CPU_Time = TempRequestData->time;
-                    MEM_Time = round(CPU_Time / 2.0);
-                    TimeUntilNextRequest = 0;
-                }
-            }
-            else if(TimeUntilNextRequest == 0)
-            {//Jump to latest request time.
-                CPU_Time = TempRequestData->time; //Advance time.
-                MEM_Time = round(CPU_Time / 2.0);
-            }
+            cout << "---| Last Memory Requests in Queue |---" << endl;
+            Queue.Display();
         }
+        uint8_t temp = 0;
+        uint64_t temp2 = 0;
+        //NewRequest = false;
+        while(!Queue.Empty())
+        {
+            MEM_Time += ProcessRequest(temp, temp2, false);
+        }
+        CPU_Time = MEM_Time * 2;
+        cout << "---| Simulation Time: CPU = " << CPU_Time << " Memory = " << MEM_Time << " |---" << endl;
+        cout << dec << setfill(' ');
+        return true; //Success, whole file simulated.
     }
-    /*
-        Only memory requests left are in the queue. So we process requests until queue is empty.
-    */
-    if(DebugMode) //Display current queue in debug mode.
+TRACE_FAIL: //Failed to read a request.
+    cout << dec << setfill(' ');
+    if(Reason) //If a reason was given.
     {
-        cout << "---| Last Memory Requests in Queue |---" << endl;
-        Queue.Display();
+        cout << "Failed to simulate file, reason is above." << endl;
     }
-    uint8_t temp;
-    uint64_t temp2;
-    //NewRequest = false;
-    while(!Queue.Empty())
-    {
-        MEM_Time += ProcessRequest(temp, temp2, false);
-    }
-    CPU_Time = MEM_Time * 2;
-    cout << "---| Simulation Time: CPU = " << CPU_Time << " Memory = " << MEM_Time << " |---" << endl;
-    //Clear simulation data.
-    CPU_Time = 0;
-    MEM_Time = 0;
-    while(Queue.Dequeue(temp, temp2)) //Clear Queue.
-    {
-
-    }
-    LoadTrace(); //Re-read memory requests from file.
-    return;
+    cout << "Invalid data on Request " << Request << '.' << endl;
+    return false;
 }
 
 /*
     Writes given command to simulate output file.
 */
-void WriteCommand(ofstream &File, uint8_t Command, uint64_t Address, int MemTime, bool DebugMode)
+int WriteCommandSimple(ofstream &File, uint8_t Command, uint64_t Address, int MemTime, bool DebugMode)
 {
+    int PassedCycles = 5; //How many memory cycles have been used.
     if(!DebugMode) //Output timing as memory cycles if not in debug mode.
     {
         MemTime *= 2;
@@ -450,16 +196,100 @@ void WriteCommand(ofstream &File, uint8_t Command, uint64_t Address, int MemTime
     File << "0x" << hex << setw(9) << BitHolder << "  ";
     BitHolder = ((Address >> 8) & 0b11); //Bank
     File << "0x" << setw(3) << BitHolder << "  ";
-    BitHolder = ((Address >> 3) & 0b111) | (((Address >> 10) & 0b11111111) << 3);
+    BitHolder = ((Address >> 3) & 0b111) | (((Address >> 10) & 0b11111111) << 3); //Column
     File << "0x" << setw(5) << BitHolder << endl;
     cout << dec << setfill(' ');
-    return;
+    return PassedCycles;
+}
+
+/*
+    Write DRAM commands to simulate output file.
+*/
+int CMDHandler::WriteCommand(ofstream &File, uint8_t Command, uint64_t Address, int MemTime, bool DebugMode)
+{
+    int PassedCycles = 0; //To track cycles passed.
+    int DelayRAS = 0; //Need to account for RAS and delay time until precharge.
+    uint16_t BankGroup = 0, Bank = 0, Column = 0, Row = 0;
+    BankGroup = ((Address >> 6) & 0b11); //Bank Group.
+    Bank = ((Address >> 8) & 0b11); //Bank
+    Column = ((Address >> 3) & 0b111) | (((Address >> 10) & 0b11111111) << 3); //Column
+    Row = Address >> 18; //Row
+    //Get delay for T_RAS if needed.
+    DelayRAS = T_RAS - (MEM_Time - TimeLastACT);
+    if(DelayRAS < 0)
+    {
+        DelayRAS = 0;
+    }
+    if(!DebugMode) //Output timing as memory cycles if not in debug mode.
+    {
+        MemTime *= 2;
+    }
+    //Currently there is no bank parallelism.
+    if(Row == LastRow) //Page hit or empty.
+    {
+        //If statement for page hit/empty is incorrect. Need to change.
+        if(Bank == LastBank) //Page hit
+        {
+            if(DebugMode){cout << "Page Hit" << endl;}
+        }
+        else //Page empty
+        {
+            if(DebugMode){cout << "Page Empty" << endl;}
+            File << left << setw(6) << to_string(MemTime + PassedCycles*(1 + !DebugMode)); //Output current time.
+            TimeLastACT = MemTime + PassedCycles;
+            File << "  ACT   " ; //Output bank group + bank + row;
+            File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  0x" << setw(5) << Row << endl;
+            PassedCycles += T_RCD; //Advance time by RAS to CAS delay.
+        }
+    }
+    else //Page Miss
+    {
+        if(DebugMode){cout << "Page Miss" << endl;}
+        PassedCycles += DelayRAS; //Delay for T_RAS if needed.
+        File << left << setw(6) << to_string(MemTime + PassedCycles*(1 + !DebugMode)); //Output current time.
+        File << "  PRE   " ; //Output bank group + bank;
+        File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  " << endl;
+        PassedCycles += T_RP; //Advance time by row precharge timing.
+
+        File << left << setw(6) << to_string(MemTime + PassedCycles*(1 + !DebugMode)); //Output current time.
+        TimeLastACT = MemTime + PassedCycles;
+        File << "  ACT   " ; //Output bank group + bank + row;
+        File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  0x" << setw(5) << Row << endl;
+        PassedCycles += T_RCD; //Advance time by RAS to CAS delay.
+    }
+    File << left << setw(6) << to_string(MemTime + PassedCycles*(1 + !DebugMode)); //Output current time.
+    //Send command.
+    if(Command == RD)
+    {
+        File << "  RD    " ; //Output bank group + bank + column;
+        File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  0x" << setw(5) << Column << endl;
+        PassedCycles += T_CAS + T_BURST; //Advance time by column delay & data burst.
+    }
+    else if(Command == WR)
+    {
+        File << "  WR    " ; //Output bank group + bank + column;
+        File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  0x" << setw(5) << Column << endl;
+        PassedCycles += T_CAS; //Advance time by column delay.
+    }
+    else if(Command == FET) //Duplicate of RD for now.
+    {
+        File << "  RD    " ; //Output bank group + bank + column;
+        File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  0x" << setw(5) << Column << endl;
+        PassedCycles += T_CAS + T_BURST; //Advance time by column delay & data burst.
+    }
+    else
+    {
+        cout << "Error: Invalid command given." << endl;
+    }
+    LastBankGroup = BankGroup; LastBank = Bank; LastColumn = Column; LastRow = Row;
+    cout << dec << setfill(' '); //Reset output format.
+    return PassedCycles;
 }
 
 
 /*
-    Processes request given or will enqueue it
-    if the queue is not empty.
+    Processes request given.
+    Returns memory clock cycles needed for request.
 */
 int CMDHandler::ProcessRequest(uint8_t Command, uint64_t Address, bool NewRequest)
 {
@@ -470,15 +300,27 @@ int CMDHandler::ProcessRequest(uint8_t Command, uint64_t Address, bool NewReques
     {
         if(NewRequest)
         {
-            WriteCommand(File, Command, Address, MEM_Time, DebugMode);
-            ClockCycles = 5; //Set fake time to do request until we code it.
+            if(!SimpleOutput)
+            {
+                ClockCycles = WriteCommand(File, Command, Address, MEM_Time, DebugMode);
+            }
+            else
+            {
+                ClockCycles = WriteCommandSimple(File, Command, Address, MEM_Time, DebugMode);
+            }
         }
         else
         {//Process request in queue instead.
             if(Queue.Dequeue(Command, Address))
             { //If something was dequeued, process it.
-                WriteCommand(File, Command, Address, MEM_Time, DebugMode);
-                ClockCycles = 5; //Set fake time to do request until we code it.
+                if(!SimpleOutput)
+                {
+                    ClockCycles = WriteCommand(File, Command, Address, MEM_Time, DebugMode);
+                }
+                else
+                {
+                    ClockCycles = WriteCommandSimple(File, Command, Address, MEM_Time, DebugMode);
+                }
             }
         }
         File.close();
