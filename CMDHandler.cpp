@@ -41,6 +41,7 @@ bool CMDHandler::Simulate()
     MEM_Time = 0;
     int BusyTime = 0; //How much time until DIMM is no longer busy.
     int TimeUntil = 0; //Time until current request.
+    int LastRequestTime = 0;
     //Reset memory controller data.
     LastBankGroup = -1, LastBank = -1, LastColumn = -1, LastRow = -1; TimeLastACT = -10000;
 
@@ -61,7 +62,8 @@ bool CMDHandler::Simulate()
         while(File.peek() != EOF) //Load rest of commands until end of file.
         {//File must end with EOF or we will return false and an error message.
             if(!(File >> CurReq.time)){cout << "Non-integer time." << endl; Reason = true; goto TRACE_FAIL;} //Get time.
-            //if(CurReq.time < CPU_Time){cout << "Given time was already passed." << endl; Reason = true; goto TRACE_FAIL;} //Got time that was in the past.
+            if(CurReq.time < LastRequestTime){cout << "Given time was already passed." << endl; Reason = true; goto TRACE_FAIL;} //Got time that was in the past.
+            LastRequestTime = CurReq.time;
             if(!(File >> CurReq.operation)){cout << "Non-integer operation." << endl; Reason = true; goto TRACE_FAIL;} //Get operation.
             if((CurReq.operation > 2) || (CurReq.operation < 0)) //Invalid operation read.
             {
@@ -216,7 +218,7 @@ int CMDHandler::WriteCommand(ofstream &File, uint8_t Command, uint64_t Address, 
     Column = ((Address >> 3) & 0b111) | (((Address >> 10) & 0b11111111) << 3); //Column
     Row = Address >> 18; //Row
     //Get delay for T_RAS if needed.
-    DelayRAS = T_RAS - (MEM_Time - TimeLastACT);
+    DelayRAS = T_RAS - (MemTime - TimeLastACT);
     if(DelayRAS < 0)
     {
         DelayRAS = 0;
@@ -237,7 +239,7 @@ int CMDHandler::WriteCommand(ofstream &File, uint8_t Command, uint64_t Address, 
         {
             if(DebugMode){cout << "Page Empty" << endl;}
             File << left << setw(6) << to_string(MemTime + PassedCycles*(1 + !DebugMode)); //Output current time.
-            TimeLastACT = MemTime + PassedCycles;
+            TimeLastACT = (MemTime/(1 + !DebugMode)) + PassedCycles;
             File << "  ACT   " ; //Output bank group + bank + row;
             File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  0x" << setw(5) << Row << endl;
             PassedCycles += T_RCD; //Advance time by RAS to CAS delay.
@@ -246,14 +248,14 @@ int CMDHandler::WriteCommand(ofstream &File, uint8_t Command, uint64_t Address, 
     else //Page Miss
     {
         if(DebugMode){cout << "Page Miss" << endl;}
-        PassedCycles += DelayRAS; //Delay for T_RAS if needed.
+        PassedCycles += DelayRAS*(1 + !DebugMode); //Delay for T_RAS if needed.
         File << left << setw(6) << to_string(MemTime + PassedCycles*(1 + !DebugMode)); //Output current time.
         File << "  PRE   " ; //Output bank group + bank;
         File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  " << endl;
         PassedCycles += T_RP; //Advance time by row precharge timing.
 
         File << left << setw(6) << to_string(MemTime + PassedCycles*(1 + !DebugMode)); //Output current time.
-        TimeLastACT = MemTime + PassedCycles;
+        TimeLastACT = (MemTime/(1 + !DebugMode)) + PassedCycles;
         File << "  ACT   " ; //Output bank group + bank + row;
         File << "0x" << hex << setw(9) << BankGroup << "  0x" << setw(3) << Bank << "  0x" << setw(5) << Row << endl;
         PassedCycles += T_RCD; //Advance time by RAS to CAS delay.
